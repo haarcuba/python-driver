@@ -33,8 +33,15 @@ from cassandra.cluster import Cluster
 from cassandra.protocol import ConfigurationException
 from cassandra.policies import RoundRobinPolicy
 
+def runScylla():
+    return os.getenv( 'SCYLLA_CCM' ) == 'yes'
+
 try:
-    from ccmlib.cluster import Cluster as CCMCluster
+    if runScylla():
+        from ccmlib.scylla_cluster import ScyllaCluster as CCMCluster
+    else:
+        from ccmlib.cluster import Cluster as CCMCluster
+        
     from ccmlib.dse_cluster import DseCluster
     from ccmlib.cluster_factory import ClusterFactory as CCMClusterFactory
     from ccmlib import common
@@ -42,6 +49,8 @@ except ImportError as e:
     CCMClusterFactory = None
 
 log = logging.getLogger(__name__)
+if runScylla():
+    log.info( '*** will use SCYLLA CCM instead of Cassandra ***' )
 
 CLUSTER_NAME = 'test_cluster'
 SINGLE_NODE_CLUSTER_NAME = 'single_node'
@@ -122,13 +131,15 @@ else:
     CASSANDRA_VERSION = os.getenv('CASSANDRA_VERSION', default_cassandra_version)
 
 CCM_KWARGS = {}
-if CASSANDRA_DIR:
-    log.info("Using Cassandra dir: %s", CASSANDRA_DIR)
-    CCM_KWARGS['install_dir'] = CASSANDRA_DIR
-
+if runScylla():
+    CCM_KWARGS['install_dir'] = os.path.join( os.getenv('HOME'), "scylla" )
 else:
-    log.info('Using Cassandra version: %s', CASSANDRA_VERSION)
-    CCM_KWARGS['version'] = CASSANDRA_VERSION
+    if CASSANDRA_DIR:
+        log.info("Using Cassandra dir: %s", CASSANDRA_DIR)
+        CCM_KWARGS['install_dir'] = CASSANDRA_DIR
+    else:
+        log.info('Using Cassandra version: %s', CASSANDRA_VERSION)
+        CCM_KWARGS['version'] = CASSANDRA_VERSION
 
 if DSE_VERSION:
     log.info('Using DSE version: %s', DSE_VERSION)
